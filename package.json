@@ -1,0 +1,74 @@
+{
+  "name": "brdata-mcp",
+  "version": "0.2.0",
+  "description": "MCP server for Brazilian company & public-procurement data, paid automatically via x402 micropayments (USDC on Base). Tools: CNPJ company registry lookup (basic + full due-diligence), company search/discovery across ~28M companies by filters (CNAE activity, state/city, size, MEI, name), public tenders/licitações via PNCP (decode Compras.gov.br IDs, resolve, header, line items, edital documents, keyword search), NF-e access-key decode, boleto decode, CEP address lookup, and batch validation of CPF/CNPJ/PIS/license plate/PIX. For KYB, due diligence, and B2G sales intelligence in Brazil.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thomenz/brdata-mcp.git"
+  },
+  "homepage": "https://github.com/thomenz/brdata-mcp#readme",
+  "bugs": "https://github.com/thomenz/brdata-mcp/issues",
+  "type": "module",
+  "bin": {
+    "brdata-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "x402",
+    "mcp",
+    "model-context-protocol",
+    "brazil",
+    "brasil",
+    "cnpj",
+    "company-data",
+    "company-search",
+    "kyb",
+    "due-diligence",
+    "pncp",
+    "licitacao",
+    "licitacoes",
+    "tender",
+    "tenders",
+    "procurement",
+    "government",
+    "b2g",
+    "compras-gov",
+    "nfe",
+    "nota-fiscal",
+    "boleto",
+    "cep",
+    "cpf",
+    "usdc",
+    "base",
+    "stablecoin",
+    "agent-tools",
+    "ai-agents"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@x402/core": "~2.17.0",
+    "@x402/evm": "~2.17.0",
+    "@x402/fetch": "~2.17.0",
+    "viem": "^2.21.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
