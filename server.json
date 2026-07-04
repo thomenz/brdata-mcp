@@ -1,23 +1,40 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.thomenz/brdata-mcp",
-  "description": "Brazilian company, risk & public-tender data (CNPJ, CEIS/CNEP, PNCP) as x402-paid agent tools.",
-  "version": "0.2.1",
+  "description": "Brazilian company, risk & public-tender data (CNPJ, CEIS/CNEP, PNCP) as x402-paid agent tools",
   "repository": {
     "url": "https://github.com/thomenz/brdata-mcp",
     "source": "github"
   },
+  "version": "0.2.1",
   "packages": [
     {
       "registryType": "npm",
-      "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "brdata-mcp",
       "version": "0.2.1",
-      "transport": { "type": "stdio" },
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
-        { "name": "EVM_PRIVATE_KEY", "description": "0x private key of a DEDICATED wallet holding USDC on Base (pays per call). Paid tools 402 without it; free validate_cnpj still works.", "isSecret": true, "isRequired": false },
-        { "name": "BRDATA_BASE_URL", "description": "Base URL of a brdata Worker. Defaults to the hosted production API.", "isRequired": false },
-        { "name": "X402_NETWORK", "description": "'base' (mainnet, default) or 'base-sepolia' (testnet).", "isRequired": false }
+        {
+          "name": "EVM_PRIVATE_KEY",
+          "description": "0x private key of a DEDICATED wallet holding USDC on Base (pays per call). Paid tools return 402 without it; the free validate_cnpj tool still works.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "BRDATA_BASE_URL",
+          "description": "Base URL of a brdata Worker. Defaults to the hosted production API (https://brdata.thomenz.me).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "X402_NETWORK",
+          "description": "'base' (mainnet, default) or 'base-sepolia' (testnet).",
+          "isRequired": false,
+          "format": "string"
+        }
       ]
     }
   ]
