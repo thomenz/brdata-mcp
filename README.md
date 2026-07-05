@@ -17,7 +17,7 @@ on Base** using a wallet you configure; a call is charged only on success.
 |------|----------|-------|-------------|
 | `lookup_company` | `GET /company/{cnpj}` | $0.01 | Consolidated registry profile |
 | `lookup_company_full` | `GET /company/{cnpj}/full` | $0.10 | + partners (QSA) + sanctions |
-| `screen_company_risk` | `GET /risk/company/{cnpj}` | $0.03 | Regulatory risk & compliance screen: federal debarment (CEIS), anti-corruption (CNEP) & leniency → verdict + 0–100 score |
+| `screen_company_risk` | `GET /risk/company/{cnpj}` | $0.03 | Regulatory risk & compliance screen: federal debarment (CEIS), anti-corruption (CNEP), leniency & forced-labor register ("Lista Suja", MTE) → verdict + 0–100 score |
 | `decode_nfe_key` | `GET /nfe/{key}` | $0.005 | NF-e/NFC-e 44-digit access-key decoder |
 | `decode_boleto` | `POST /boleto/decode` | $0.005 | Boleto digitable-line decoder |
 | `validate_documents` | `POST /validate/batch` | $0.002 | Batch validate CPF/CNPJ/PIS/plate/Pix (≤100) |

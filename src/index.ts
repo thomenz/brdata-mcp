@@ -72,7 +72,7 @@ async function call(method: string, path: string, body?: unknown): Promise<ToolR
 }
 
 const server = new McpServer(
-  { name: "brdata-mcp", version: "0.2.0" },
+  { name: "brdata-mcp", version: "0.2.3" },
   {
     instructions:
       "brdata exposes paid tools over Brazilian public company & government data, " +
@@ -81,9 +81,10 @@ const server = new McpServer(
       "1) Company registry by CNPJ — `lookup_company` (basic: legal name, status, CNAE " +
       "activities, address) and `lookup_company_full` (due diligence: + partners, sanctions).\n" +
       "2) Regulatory risk & compliance — `screen_company_risk`: federal debarment (CEIS), " +
-      "anti-corruption (CNEP) and leniency registries → verdict + 0–100 risk score, each hit " +
-      "flagged active vs historical. The Brazilian complement global OFAC/EU/UK/UN + PEP screens " +
-      "miss (a company barred by the Brazilian government comes back clean on those).\n" +
+      "anti-corruption (CNEP), leniency and the forced-labor register ('Lista Suja', MTE) → verdict " +
+      "+ 0–100 risk score, each hit flagged active vs historical. The Brazilian complement global " +
+      "OFAC/EU/UK/UN + PEP screens miss (a company barred or listed for slave-like labor by the " +
+      "Brazilian government comes back clean on those).\n" +
       "3) Company search & discovery across ~28M active companies — `search_companies` by " +
       "filters (CNAE activity code, state/city, company size, MEI, name), cursor-paginated. " +
       "Use this to BUILD LISTS/prospect; use lookup_* when you already have a CNPJ.\n" +
@@ -130,7 +131,7 @@ server.registerTool(
   {
     title: "Brazilian regulatory risk & compliance screen",
     description:
-      "Screen a Brazilian company by CNPJ against the federal debarment (CEIS), anti-corruption (CNEP) and leniency-agreement registries. Returns a single verdict (clear/flagged) + 0–100 risk score, each hit flagged active vs historical. The Brazilian complement that global OFAC/EU/UK/UN + PEP screens miss — a company barred by the Brazilian government comes back clean on those. Company-level public data; no CPF (LGPD). Paid ($0.03).",
+      "Screen a Brazilian company by CNPJ against the federal debarment (CEIS), anti-corruption (CNEP), leniency-agreement and forced-labor ('Lista Suja' — MTE Cadastro de Empregadores) registries. Returns a single verdict (clear/flagged) + 0–100 risk score, each hit flagged active vs historical. The Brazilian complement that global OFAC/EU/UK/UN + PEP screens miss — a company barred or listed for slave-like labor by the Brazilian government comes back clean on those. Company-level public data; no CPF (LGPD). Paid ($0.03).",
     inputSchema: CNPJ_ARG,
   },
   ({ cnpj }) => call("GET", `/risk/company/${encodeURIComponent(cnpj)}`),
