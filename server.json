@@ -6,12 +6,12 @@
     "url": "https://github.com/thomenz/brdata-mcp",
     "source": "github"
   },
-  "version": "0.2.3",
+  "version": "0.3.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "brdata-mcp",
-      "version": "0.2.3",
+      "version": "0.3.2",
       "transport": {
         "type": "stdio"
       },
@@ -21,6 +21,19 @@
           "description": "0x private key of a DEDICATED wallet holding USDC on Base (pays per call). Paid tools return 402 without it; the free validate_cnpj tool still works.",
           "isRequired": false,
           "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "SOLANA_PRIVATE_KEY",
+          "description": "base58 or JSON-array secret key of a DEDICATED Solana wallet holding USDC (pays per call). Configure this and/or EVM_PRIVATE_KEY; the x402 layer settles on whichever rail the 402 advertises.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "SOLANA_RPC_URL",
+          "description": "Optional Solana RPC override used to build the payment (e.g. a Helius URL).",
+          "isRequired": false,
           "format": "string"
         },
         {

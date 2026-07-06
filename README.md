@@ -9,7 +9,9 @@ documents, keyword search), NF-e & boleto decoding, CEP lookup, and batch docume
 validation — for KYB, due diligence, and B2G (public-sector) sales intelligence.
 
 Paid tools **automatically settle** the underlying x402-protected HTTP endpoints in **USDC
-on Base** using a wallet you configure; a call is charged only on success.
+on Base or Solana** using a wallet you configure; a call is charged only on success. Configure a
+Base wallet (`EVM_PRIVATE_KEY`), a Solana wallet (`SOLANA_PRIVATE_KEY`), or both — the x402 layer
+settles on whichever rail the server's 402 challenge advertises.
 
 ## Tools
 
@@ -41,8 +43,10 @@ Environment variables:
 | Var | Required | Default | Meaning |
 |-----|----------|---------|---------|
 | `BRDATA_BASE_URL` | no | `https://brdata.thomenz.me` | Base URL of a brdata Worker (defaults to the hosted production API) |
-| `EVM_PRIVATE_KEY` | for paid tools | — | `0x`-prefixed key of the paying wallet (holds USDC) |
-| `X402_NETWORK` | no | `base` | `base` (mainnet, matches the default URL) or `base-sepolia` (testnet) |
+| `EVM_PRIVATE_KEY` | for paid tools (Base) | — | `0x`-prefixed key of the paying Base wallet (holds USDC) |
+| `SOLANA_PRIVATE_KEY` | for paid tools (Solana) | — | base58 or JSON-array secret key of the paying Solana wallet (holds USDC). Configure this and/or `EVM_PRIVATE_KEY` |
+| `SOLANA_RPC_URL` | no | public RPC | Optional Solana RPC override used to build the payment (e.g. a Helius URL) |
+| `X402_NETWORK` | no | `base` | `base` (mainnet, matches the default URL) or `base-sepolia` (testnet → Solana devnet) |
 
 ## ⚠️ Security
 

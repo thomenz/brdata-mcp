@@ -3,43 +3,93 @@
  * brdata-mcp — an MCP (Model Context Protocol) stdio server that exposes the
  * brdata Brazilian company & document tools to agent harnesses (Claude Code,
  * Claude Desktop, …). Paid tools automatically settle the x402 HTTP endpoints
- * using the wallet configured via EVM_PRIVATE_KEY.
+ * using the wallet(s) configured via EVM_PRIVATE_KEY and/or SOLANA_PRIVATE_KEY.
+ *
+ * The brdata service accepts payment on BOTH Base and Solana (USDC). This client
+ * registers whichever rails you give it a key for; the x402 layer picks the one
+ * the server's 402 challenge advertises (if you configure both, it settles on
+ * whichever the server lists — no manual selection needed).
  *
  * Environment:
- *   BRDATA_BASE_URL   base URL of a running brdata Worker (default https://brdata.thomenz.me)
- *   EVM_PRIVATE_KEY   0x-prefixed key of the paying wallet (holds USDC)
- *   X402_NETWORK      "base" (mainnet, default) or "base-sepolia" (testnet)
+ *   BRDATA_BASE_URL    base URL of a running brdata Worker (default https://brdata.thomenz.me)
+ *   EVM_PRIVATE_KEY    0x-prefixed key of the paying Base wallet (holds USDC)
+ *   SOLANA_PRIVATE_KEY base58 or JSON-array secret key of the paying Solana wallet (holds USDC)
+ *   X402_NETWORK       "base" (mainnet, default) or "base-sepolia" (testnet → Solana devnet)
+ *   SOLANA_RPC_URL     optional RPC override used to build the Solana payment (e.g. a Helius URL)
  *
- * SECURITY: EVM_PRIVATE_KEY controls real funds. Use a DEDICATED wallet with a
- * small balance — never a personal/treasury key. Anything that can read this
- * process' environment can spend from it.
+ * SECURITY: these keys control real funds. Use DEDICATED wallets with small
+ * balances — never a personal/treasury key. Anything that can read this
+ * process' environment can spend from them.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
-import type { Network } from "@x402/core/types";
+import { ExactSvmScheme } from "@x402/svm/exact/client";
+import {
+  createKeyPairSignerFromBytes,
+  createKeyPairSignerFromPrivateKeyBytes,
+  getBase58Encoder,
+} from "@solana/kit";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 
 const BASE = (process.env.BRDATA_BASE_URL ?? "https://brdata.thomenz.me").replace(/\/+$/, "");
-const NETWORK: Network = (process.env.X402_NETWORK === "base-sepolia"
-  ? "eip155:84532"
-  : "eip155:8453") as Network;
-const PK = process.env.EVM_PRIVATE_KEY;
+const TESTNET = process.env.X402_NETWORK === "base-sepolia";
 
-// A payment-aware fetch when a key is present; otherwise plain fetch (free tools
-// still work; paid tools will surface the 402 as a tool error).
+// CAIP-2 network ids (Solana ids are the first 32 chars of each cluster's genesis hash).
+const SOLANA_MAINNET = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
+const SOLANA_DEVNET = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1";
+const BASE_MAINNET = "eip155:8453";
+const BASE_SEPOLIA = "eip155:84532";
+
+async function loadSolanaSigner(raw: string) {
+  const pk = raw.trim();
+  const bytes = pk.startsWith("[")
+    ? Uint8Array.from(JSON.parse(pk) as number[])
+    : new Uint8Array(getBase58Encoder().encode(pk));
+  if (bytes.length === 64) return createKeyPairSignerFromBytes(bytes);
+  if (bytes.length === 32) return createKeyPairSignerFromPrivateKeyBytes(bytes);
+  throw new Error(`SOLANA_PRIVATE_KEY has unexpected length ${bytes.length} (want 32 or 64 bytes)`);
+}
+
+// Build a payment-aware fetch registering every rail we have a key for. Free
+// tools still work with plain fetch; paid tools surface the 402 as a tool error
+// when no matching wallet is configured.
 let payFetch: typeof fetch = fetch;
-if (PK) {
-  const account = privateKeyToAccount(PK as `0x${string}`);
-  payFetch = wrapFetchWithPaymentFromConfig(fetch, {
-    schemes: [{ network: NETWORK, client: new ExactEvmScheme(account) }],
-  }) as typeof fetch;
+const rails: string[] = [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const schemes: Array<{ network: any; client: any }> = [];
+
+const solPk = process.env.SOLANA_PRIVATE_KEY;
+if (solPk) {
+  try {
+    const signer = await loadSolanaSigner(solPk);
+    const config = process.env.SOLANA_RPC_URL ? { rpcUrl: process.env.SOLANA_RPC_URL } : undefined;
+    schemes.push({ network: TESTNET ? SOLANA_DEVNET : SOLANA_MAINNET, client: new ExactSvmScheme(signer, config) });
+    rails.push(`solana(${signer.address})`);
+  } catch (err) {
+    console.error(`[brdata-mcp] SOLANA_PRIVATE_KEY invalid: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+const evmPk = process.env.EVM_PRIVATE_KEY;
+if (evmPk) {
+  try {
+    const account = privateKeyToAccount(evmPk as `0x${string}`);
+    schemes.push({ network: TESTNET ? BASE_SEPOLIA : BASE_MAINNET, client: new ExactEvmScheme(account) });
+    rails.push(`base(${account.address})`);
+  } catch (err) {
+    console.error(`[brdata-mcp] EVM_PRIVATE_KEY invalid: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+if (schemes.length > 0) {
+  payFetch = wrapFetchWithPaymentFromConfig(fetch, { schemes }) as typeof fetch;
 } else {
   console.error(
-    "[brdata-mcp] EVM_PRIVATE_KEY not set — paid tools will fail on HTTP 402. The free validate_cnpj tool still works.",
+    "[brdata-mcp] No EVM_PRIVATE_KEY or SOLANA_PRIVATE_KEY set — paid tools will fail on HTTP 402. The free validate_cnpj tool still works.",
   );
 }
 
@@ -72,11 +122,11 @@ async function call(method: string, path: string, body?: unknown): Promise<ToolR
 }
 
 const server = new McpServer(
-  { name: "brdata-mcp", version: "0.2.3" },
+  { name: "brdata-mcp", version: "0.3.2" },
   {
     instructions:
       "brdata exposes paid tools over Brazilian public company & government data, " +
-      "settling x402 micropayments (USDC on Base) automatically per call — a call is " +
+      "settling x402 micropayments (USDC on Base or Solana) automatically per call — a call is " +
       "charged only on success; invalid input is rejected for free. Coverage:\n" +
       "1) Company registry by CNPJ — `lookup_company` (basic: legal name, status, CNAE " +
       "activities, address) and `lookup_company_full` (due diligence: + partners, sanctions).\n" +
@@ -314,4 +364,6 @@ server.registerTool(
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-console.error(`[brdata-mcp] ready. base=${BASE} network=${NETWORK} paid=${PK ? "on" : "off"}`);
+console.error(
+  `[brdata-mcp] ready. base=${BASE} network=${TESTNET ? "testnet" : "mainnet"} rails=[${rails.join(", ") || "none (free tools only)"}]`,
+);
