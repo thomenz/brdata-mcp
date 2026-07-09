@@ -1,7 +1,7 @@
 {
   "name": "brdata-mcp",
   "mcpName": "io.github.thomenz/brdata-mcp",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "MCP server for Brazilian company & public-procurement data, paid automatically via x402 micropayments (USDC on Base or Solana). Tools: CNPJ company registry lookup (basic + full due-diligence), company search/discovery across ~28M companies by filters (CNAE activity, state/city, size, MEI, name), public tenders/licitações via PNCP (decode Compras.gov.br IDs, resolve, header, line items, edital documents, keyword search), NF-e access-key decode, boleto decode, CEP address lookup, and batch validation of CPF/CNPJ/PIS/license plate/PIX. For KYB, due diligence, and B2G sales intelligence in Brazil. Pay with a Base wallet (EVM_PRIVATE_KEY) and/or a Solana wallet (SOLANA_PRIVATE_KEY).",
   "license": "MIT",
   "repository": {
