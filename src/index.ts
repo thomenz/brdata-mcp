@@ -122,7 +122,9 @@ async function call(method: string, path: string, body?: unknown): Promise<ToolR
 }
 
 const server = new McpServer(
-  { name: "brdata-mcp", version: "0.3.2" },
+  // Keep in sync with package.json and server.json — this is the version the MCP client
+  // sees in the initialize handshake.
+  { name: "brdata-mcp", version: "0.3.5" },
   {
     instructions:
       "brdata exposes paid tools over Brazilian public company & government data, " +
@@ -171,7 +173,7 @@ server.registerTool(
   {
     title: "Lookup Brazilian company (full due diligence)",
     description:
-      "Full profile: everything in lookup_company plus partners/shareholders (QSA) and government sanction checks (CEIS/CNEP). Paid ($0.10).",
+      "Full profile: everything in lookup_company plus partners/shareholders (QSA, no CPF) and the same 5-registry regulatory screen as screen_company_risk — debarment (CEIS), anti-corruption (CNEP), leniency, impeded non-profits (CEPIM) and the forced-labor register — with a verdict and 0-100 risk score. `sources_checked` names the registries that answered. Paid ($0.10).",
     inputSchema: CNPJ_ARG,
   },
   ({ cnpj }) => call("GET", `/company/${encodeURIComponent(cnpj)}/full`),
@@ -248,12 +250,16 @@ server.registerTool(
   {
     title: "Search & segment active Brazilian companies",
     description:
-      "Search active Brazilian companies by industry (CNAE prefix, main activity), location " +
-      "(state/city), size, age (registration date) and legal-name substring. Returns official " +
-      "registry data with business contact info (MEI contacts are redacted under LGPD). Cursor " +
-      "paginated. Paid per page ($0.05). At least one filter is required.",
+      "Search active Brazilian companies by industry (CNAE prefix, main OR secondary activity), " +
+      "location (state/city), size, age (registration date), declared share capital and " +
+      "legal-name substring. Returns official registry data with business contact info (MEI " +
+      "contacts are redacted under LGPD). Cursor paginated. Paid per page ($0.05). At least one " +
+      "filter is required.",
     inputSchema: {
-      cnae: z.array(z.string()).optional().describe("CNAE prefixes (4-7 digits), matched on the MAIN activity."),
+      cnae: z.array(z.string()).optional().describe("CNAE prefixes (4-7 digits), matched on the MAIN activity. Masked codes accepted (\"6201-5/01\")."),
+      cnae_secondary: z.array(z.string()).optional().describe("CNAE prefixes (4-7 digits) matched on the SECONDARY activities. Matches if any secondary activity falls under any prefix."),
+      share_capital_min: z.number().min(0).optional().describe("Declared share capital in BRL >= this."),
+      share_capital_max: z.number().min(0).optional().describe("Declared share capital in BRL <= this."),
       state: z.string().length(2).optional().describe("State (UF), e.g. \"MS\"."),
       city: z.string().optional().describe("City name (accent/case-insensitive) or a TOM/IBGE code."),
       company_size: z.array(z.enum(["ME", "EPP", "DEMAIS"])).optional(),
