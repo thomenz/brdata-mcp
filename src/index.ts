@@ -34,6 +34,7 @@ import {
 } from "@solana/kit";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
+import { createHash } from "node:crypto";
 
 const BASE = (process.env.BRDATA_BASE_URL ?? "https://brdata.thomenz.me").replace(/\/+$/, "");
 const TESTNET = process.env.X402_NETWORK === "base-sepolia";
@@ -95,11 +96,40 @@ if (schemes.length > 0) {
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 
+/**
+ * Janela de idempotência do lado do cliente, em milissegundos.
+ *
+ * ⚠️ A CHAVE É DERIVADA DO PEDIDO, NÃO SORTEADA — e essa é a decisão inteira. Um UUID
+ * novo a cada chamada não protege ninguém: este servidor MCP não tem laço de retry
+ * próprio, então quem repete é o AGENTE por cima (o harness chama a ferramenta de novo),
+ * e uma chave nova a cada tentativa faria ele assinar um pagamento novo e pagar duas
+ * vezes pela mesma pergunta. Derivada do método+caminho+corpo, a segunda tentativa
+ * carrega a mesma chave e o servidor devolve a resposta já paga de graça.
+ *
+ * ⚠️ O BALDE DE TEMPO existe para não trocar dinheiro por dado velho. Sem ele, duas
+ * perguntas iguais e INTENCIONAIS separadas por dez minutos receberiam a mesma resposta
+ * congelada. Com 60s, o retry (que acontece em segundos) cai no mesmo balde e sai
+ * grátis, e o teto de idade da resposta é um minuto.
+ *
+ * ⚠️ Limitação honesta: um retry que atravesse a fronteira do balde recebe chave nova e
+ * paga de novo. É o comportamento de hoje, não uma piora — só não é proteção total.
+ */
+const IDEMPOTENCY_BUCKET_MS = 60_000;
+
+function idempotencyKey(method: string, path: string, body?: unknown): string {
+  const bucket = Math.floor(Date.now() / IDEMPOTENCY_BUCKET_MS);
+  const material = `${method} ${path} ${body === undefined ? "" : JSON.stringify(body)} ${bucket}`;
+  return createHash("sha256").update(material).digest("hex").slice(0, 32);
+}
+
 async function call(method: string, path: string, body?: unknown): Promise<ToolResult> {
   try {
     const res = await payFetch(`${BASE}${path}`, {
       method,
-      headers: body ? { "content-type": "application/json" } : {},
+      headers: {
+        ...(body ? { "content-type": "application/json" } : {}),
+        "idempotency-key": idempotencyKey(method, path, body),
+      },
       body: body ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();
@@ -124,7 +154,7 @@ async function call(method: string, path: string, body?: unknown): Promise<ToolR
 const server = new McpServer(
   // Keep in sync with package.json and server.json — this is the version the MCP client
   // sees in the initialize handshake.
-  { name: "brdata-mcp", version: "0.3.5" },
+  { name: "brdata-mcp", version: "0.3.6" },
   {
     instructions:
       "brdata exposes paid tools over Brazilian public company & government data, " +
