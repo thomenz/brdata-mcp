@@ -17,14 +17,14 @@ settles on whichever rail the server's 402 challenge advertises.
 
 | Tool | Endpoint | Price | Description |
 |------|----------|-------|-------------|
-| `lookup_company` | `GET /company/{cnpj}` | $0.01 | Consolidated registry profile |
-| `lookup_company_full` | `GET /company/{cnpj}/full` | $0.10 | + partners (QSA) + sanctions |
-| `screen_company_risk` | `GET /risk/company/{cnpj}` | $0.03 | Regulatory risk & compliance screen across 5 federal registries: debarment (CEIS), anti-corruption (CNEP), impeded non-profits (CEPIM), leniency & forced-labor register ("Lista Suja", MTE) → verdict + 0–100 score + per-source `data_as_of` |
+| `lookup_company` | `GET /company/{cnpj}` | $0.005 | Consolidated registry profile |
+| `lookup_company_full` | `GET /company/{cnpj}/full` | $0.03 | + partners (QSA) + sanctions |
+| `screen_company_risk` | `GET /risk/company/{cnpj}` | $0.015 | Regulatory risk & compliance screen across 5 federal registries: debarment (CEIS), anti-corruption (CNEP), impeded non-profits (CEPIM), leniency & forced-labor register ("Lista Suja", MTE) → verdict + 0–100 score + per-source `data_as_of` |
 | `decode_nfe_key` | `GET /nfe/{key}` | $0.005 | NF-e/NFC-e 44-digit access-key decoder |
 | `decode_boleto` | `POST /boleto/decode` | $0.005 | Boleto digitable-line decoder |
-| `validate_documents` | `POST /validate/batch` | $0.002 | Batch validate CPF/CNPJ/PIS/plate/Pix (≤100) |
-| `lookup_cep` | `GET /cep/{cep}` | $0.005 | Enriched postal-code lookup |
-| `search_companies` | `POST /companies/search` | $0.05/page | Search & segment active companies by CNAE/location/size/age/name |
+| `validate_documents` | `POST /validate/batch` | $0.001 | Batch validate CPF/CNPJ/PIS/plate/Pix (≤100) |
+| `lookup_cep` | `GET /cep/{cep}` | $0.002 | Enriched postal-code lookup |
+| `search_companies` | `POST /companies/search` | $0.015/page | Search & segment active companies by CNAE/location/size/age/name |
 | `decode_tender_id` | `GET /tender/decode/{id}` | $0.005 | Offline decode of a Compras.gov.br 17-digit tender id |
 | `resolve_tender` | `POST /tender/resolve` | $0.02 | Resolve any tender reference (id/URL/control number) to PNCP + summary |
 | `get_tender` | `GET /tender/{cnpj}/{year}/{seq}` | $0.01 | Full tender header (PNCP) |
@@ -98,7 +98,7 @@ If you run from source instead of npm, use:
 
 > "Use brdata to run full due diligence on CNPJ 00.000.000/0001-91."
 
-The agent calls `lookup_company_full`, which pays $0.10 in USDC and returns the
+The agent calls `lookup_company_full`, which pays $0.03 in USDC and returns the
 consolidated English profile with partners and sanction checks.
 
 ## Build & publish

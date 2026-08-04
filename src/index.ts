@@ -37,6 +37,54 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 
 const BASE = (process.env.BRDATA_BASE_URL ?? "https://brdata.thomenz.me").replace(/\/+$/, "");
+
+/**
+ * PREÇOS — fonte única deste pacote, e o espelho do `catalog.ts` do Worker.
+ *
+ * ⚠️ O preço vai DENTRO da descrição da tool, que é o texto que o agente lê para decidir
+ * se vale chamar. Escrito à mão em cada descrição, ele sobreviveu ao repreçamento de
+ * 2026-08-04 anunciando os valores velhos ($0.01/$0.10/$0.03/$0.05) enquanto o 402 já
+ * cobrava outra coisa — o pior tipo de divergência, porque o agente decide por um número
+ * e paga outro. Interpole sempre; nunca escreva o valor na frase.
+ *
+ * ⚠️ Este pacote NÃO importa o `catalog.ts` (é outro repositório, publicado sozinho no
+ * npm), então a sincronia é verificada em runtime por `npm run check-prices`, que compara
+ * esta tabela com o `/.well-known/x402` VIVO. Rode antes de publicar.
+ */
+export const PRICES = {
+  basic: "$0.005",
+  full: "$0.03",
+  risk: "$0.015",
+  nfe: "$0.005",
+  boleto: "$0.005",
+  batch: "$0.001",
+  cep: "$0.002",
+  search: "$0.015",
+  tenderDecode: "$0.005",
+  tenderResolve: "$0.02",
+  tenderHeader: "$0.01",
+  tenderItems: "$0.03",
+  tenderDocs: "$0.01",
+  tenderSearch: "$0.05",
+} as const;
+
+/** Caminho da rota -> chave de preço. É o que o `check-prices` usa para casar as duas listas. */
+export const PRICE_ROUTES: Record<keyof typeof PRICES, string> = {
+  basic: "/company/{cnpj}",
+  full: "/company/{cnpj}/full",
+  risk: "/risk/company/{cnpj}",
+  nfe: "/nfe/{chave}",
+  boleto: "/boleto/decode",
+  batch: "/validate/batch",
+  cep: "/cep/{cep}",
+  search: "/companies/search",
+  tenderDecode: "/tender/decode/{id}",
+  tenderResolve: "/tender/resolve",
+  tenderHeader: "/tender/{cnpj}/{year}/{seq}",
+  tenderItems: "/tender/{cnpj}/{year}/{seq}/items",
+  tenderDocs: "/tender/{cnpj}/{year}/{seq}/documents",
+  tenderSearch: "/tender/search",
+};
 const TESTNET = process.env.X402_NETWORK === "base-sepolia";
 
 // CAIP-2 network ids (Solana ids are the first 32 chars of each cluster's genesis hash).
@@ -154,7 +202,7 @@ async function call(method: string, path: string, body?: unknown): Promise<ToolR
 const server = new McpServer(
   // Keep in sync with package.json and server.json — this is the version the MCP client
   // sees in the initialize handshake.
-  { name: "brdata-mcp", version: "0.3.6" },
+  { name: "brdata-mcp", version: "0.3.7" },
   {
     instructions:
       "brdata exposes paid tools over Brazilian public company & government data, " +
@@ -192,7 +240,7 @@ server.registerTool(
   {
     title: "Lookup Brazilian company (basic)",
     description:
-      "Consolidated official registry profile of a Brazilian company by CNPJ: legal name, status, activities (CNAE), address, incorporation date. Paid ($0.01).",
+      `Consolidated official registry profile of a Brazilian company by CNPJ: legal name, status, activities (CNAE), address, incorporation date. Paid (${PRICES.basic}).`,
     inputSchema: CNPJ_ARG,
   },
   ({ cnpj }) => call("GET", `/company/${encodeURIComponent(cnpj)}`),
@@ -203,7 +251,7 @@ server.registerTool(
   {
     title: "Lookup Brazilian company (full due diligence)",
     description:
-      "Full profile: everything in lookup_company plus partners/shareholders (QSA, no CPF) and the same 5-registry regulatory screen as screen_company_risk — debarment (CEIS), anti-corruption (CNEP), leniency, impeded non-profits (CEPIM) and the forced-labor register — with a verdict and 0-100 risk score. `sources_checked` names the registries that answered. Paid ($0.10).",
+      `Full profile: everything in lookup_company plus partners/shareholders (QSA, no CPF) and the same 5-registry regulatory screen as screen_company_risk — debarment (CEIS), anti-corruption (CNEP), leniency, impeded non-profits (CEPIM) and the forced-labor register — with a verdict and 0-100 risk score. \`sources_checked\` names the registries that answered. Paid (${PRICES.full}).`,
     inputSchema: CNPJ_ARG,
   },
   ({ cnpj }) => call("GET", `/company/${encodeURIComponent(cnpj)}/full`),
@@ -214,7 +262,7 @@ server.registerTool(
   {
     title: "Brazilian regulatory risk & compliance screen",
     description:
-      "Screen a Brazilian company by CNPJ against 5 federal registries: debarment (CEIS), anti-corruption (CNEP), impeded non-profits (CEPIM), leniency agreements and the forced-labor register ('Lista Suja' — MTE Cadastro de Empregadores). Returns a single verdict (clear/flagged) + 0–100 risk score, each hit flagged active vs historical, plus per-source data_as_of freshness. The Brazilian complement that global OFAC/EU/UK/UN + PEP screens miss — pair it with an international provider for complete KYB. Company-level public data; no CPF (LGPD). Paid ($0.03).",
+      `Screen a Brazilian company by CNPJ against 5 federal registries: debarment (CEIS), anti-corruption (CNEP), impeded non-profits (CEPIM), leniency agreements and the forced-labor register ('Lista Suja' — MTE Cadastro de Empregadores). Returns a single verdict (clear/flagged) + 0–100 risk score, each hit flagged active vs historical, plus per-source data_as_of freshness. The Brazilian complement that global OFAC/EU/UK/UN + PEP screens miss — pair it with an international provider for complete KYB. Company-level public data; no CPF (LGPD). Paid (${PRICES.risk}).`,
     inputSchema: CNPJ_ARG,
   },
   ({ cnpj }) => call("GET", `/risk/company/${encodeURIComponent(cnpj)}`),
@@ -225,7 +273,7 @@ server.registerTool(
   {
     title: "Decode NF-e access key",
     description:
-      "Decode a 44-digit Brazilian electronic invoice (NF-e/NFC-e) access key: issuer CNPJ, state, emission date, invoice number, model. Paid ($0.005).",
+      `Decode a 44-digit Brazilian electronic invoice (NF-e/NFC-e) access key: issuer CNPJ, state, emission date, invoice number, model. Paid (${PRICES.nfe}).`,
     inputSchema: { access_key: z.string().describe("44-digit NF-e access key.") },
   },
   ({ access_key }) => call("GET", `/nfe/${encodeURIComponent(access_key)}`),
@@ -236,7 +284,7 @@ server.registerTool(
   {
     title: "Decode boleto digitable line",
     description:
-      "Decode a Brazilian boleto linha digitável (47 or 48 digits): bank, amount, due date, validity. Paid ($0.005).",
+      `Decode a Brazilian boleto linha digitável (47 or 48 digits): bank, amount, due date, validity. Paid (${PRICES.boleto}).`,
     inputSchema: { digitable_line: z.string().describe("Boleto digitable line (47 or 48 digits).") },
   },
   ({ digitable_line }) => call("POST", "/boleto/decode", { digitable_line }),
@@ -247,7 +295,7 @@ server.registerTool(
   {
     title: "Batch-validate Brazilian identifiers",
     description:
-      "Validate up to 100 Brazilian identifiers: CPF, CNPJ (incl. alphanumeric), PIS, license plates, Pix keys. Paid ($0.002).",
+      `Validate up to 100 Brazilian identifiers: CPF, CNPJ (incl. alphanumeric), PIS, license plates, Pix keys. Paid (${PRICES.batch}).`,
     inputSchema: {
       documents: z
         .array(
@@ -269,7 +317,7 @@ server.registerTool(
   {
     title: "Lookup Brazilian postal code (CEP)",
     description:
-      "Enriched CEP lookup: full address, IBGE city code, coordinates when available. Paid ($0.005).",
+      `Enriched CEP lookup: full address, IBGE city code, coordinates when available. Paid (${PRICES.cep}).`,
     inputSchema: { cep: z.string().describe("8-digit Brazilian postal code (CEP).") },
   },
   ({ cep }) => call("GET", `/cep/${encodeURIComponent(cep)}`),
@@ -283,7 +331,7 @@ server.registerTool(
       "Search active Brazilian companies by industry (CNAE prefix, main OR secondary activity), " +
       "location (state/city), size, age (registration date), declared share capital and " +
       "legal-name substring. Returns official registry data with business contact info (MEI " +
-      "contacts are redacted under LGPD). Cursor paginated. Paid per page ($0.05). At least one " +
+      `contacts are redacted under LGPD). Cursor paginated. Paid per page (${PRICES.search}). At least one ` +
       "filter is required.",
     inputSchema: {
       cnae: z.array(z.string()).optional().describe("CNAE prefixes (4-7 digits), matched on the MAIN activity. Masked codes accepted (\"6201-5/01\")."),
@@ -320,7 +368,7 @@ server.registerTool(
   {
     title: "Decode a Compras.gov.br tender id (offline)",
     description:
-      "Offline decode of a Compras.gov.br 17-digit tender id (UASG + modality + number + year), with the modality name in English. Paid ($0.005).",
+      `Offline decode of a Compras.gov.br 17-digit tender id (UASG + modality + number + year), with the modality name in English. Paid (${PRICES.tenderDecode}).`,
     inputSchema: { id: z.string().describe("17-digit Compras.gov.br id.") },
   },
   ({ id }) => call("GET", `/tender/decode/${encodeURIComponent(id)}`),
@@ -331,7 +379,7 @@ server.registerTool(
   {
     title: "Resolve a Brazilian tender reference to PNCP",
     description:
-      "Resolve any Brazilian public tender reference (Compras.gov.br 17-digit id or URL, PNCP URL, or control number) into canonical PNCP coordinates + a summary (object, modality, estimated value, dates). Paid ($0.02).",
+      `Resolve any Brazilian public tender reference (Compras.gov.br 17-digit id or URL, PNCP URL, or control number) into canonical PNCP coordinates + a summary (object, modality, estimated value, dates). Paid (${PRICES.tenderResolve}).`,
     inputSchema: {
       reference: z
         .string()
@@ -346,7 +394,7 @@ server.registerTool(
   {
     title: "Get a Brazilian tender header (PNCP)",
     description:
-      "Full header of a Brazilian public tender by PNCP coordinates: object, modality, status, estimated value, opening/closing dates, buyer, price-registration flag. Paid ($0.01).",
+      `Full header of a Brazilian public tender by PNCP coordinates: object, modality, status, estimated value, opening/closing dates, buyer, price-registration flag. Paid (${PRICES.tenderHeader}).`,
     inputSchema: TENDER_COORDS,
   },
   ({ cnpj, year, seq }) => call("GET", `/tender/${encodeURIComponent(cnpj)}/${year}/${seq}`),
@@ -357,7 +405,7 @@ server.registerTool(
   {
     title: "Get all items of a Brazilian tender (PNCP)",
     description:
-      "All items of a Brazilian public tender: quantities, maximum accepted prices, units, and SME-exclusive (ME/EPP) flags. Essential for bid/no-bid analysis. Paid ($0.03).",
+      `All items of a Brazilian public tender: quantities, maximum accepted prices, units, and SME-exclusive (ME/EPP) flags. Essential for bid/no-bid analysis. Paid (${PRICES.tenderItems}).`,
     inputSchema: TENDER_COORDS,
   },
   ({ cnpj, year, seq }) => call("GET", `/tender/${encodeURIComponent(cnpj)}/${year}/${seq}/items`),
@@ -368,7 +416,7 @@ server.registerTool(
   {
     title: "List documents of a Brazilian tender (PNCP)",
     description:
-      "Document list (download URIs) of a Brazilian public tender. ZIPs usually contain the full edital PDF and item list. Metadata only — files are not fetched. Paid ($0.01).",
+      `Document list (download URIs) of a Brazilian public tender. ZIPs usually contain the full edital PDF and item list. Metadata only — files are not fetched. Paid (${PRICES.tenderDocs}).`,
     inputSchema: TENDER_COORDS,
   },
   ({ cnpj, year, seq }) => call("GET", `/tender/${encodeURIComponent(cnpj)}/${year}/${seq}/documents`),
@@ -379,7 +427,7 @@ server.registerTool(
   {
     title: "Search Brazilian public tenders (PNCP)",
     description:
-      "Search Brazilian public procurement tenders (PNCP) by keyword. Returns normalized references (CNPJ/year/sequential, control number, PNCP URL) ready for detail lookups. Paid ($0.05).",
+      `Search Brazilian public procurement tenders (PNCP) by keyword. Returns normalized references (CNPJ/year/sequential, control number, PNCP URL) ready for detail lookups. Paid (${PRICES.tenderSearch}).`,
     inputSchema: {
       query: z.string().min(3).describe("Keyword(s), min 3 chars."),
       page: z.number().int().min(1).optional().describe("Page (default 1)."),
